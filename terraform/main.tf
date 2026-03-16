@@ -19,7 +19,7 @@ terraform {
 
   # Uncomment after first apply to enable remote state
   backend "gcs" {
-    bucket = ""project-7d668bc6-9d94-4bba-9c1"-tfstate"
+    bucket = "project-7d668bc6-9d94-4bba-9c1-tfstate"
     prefix = "greenops-copilot/state"
   }
 }
@@ -98,7 +98,9 @@ resource "google_artifact_registry_repository" "greenops" {
 resource "google_secret_manager_secret" "electricity_maps_api_key" {
   secret_id = "electricity-maps-api-key"
   project   = var.project_id
-  replication { auto {} }
+  replication {
+    auto {}
+  }
   depends_on = [google_project_service.apis]
 }
 
@@ -111,7 +113,9 @@ resource "google_secret_manager_secret_version" "electricity_maps_placeholder" {
 resource "google_secret_manager_secret" "watttime_username" {
   secret_id = "watttime-username"
   project   = var.project_id
-  replication { auto {} }
+  replication {
+    auto {}
+  }
   depends_on = [google_project_service.apis]
 }
 
@@ -124,7 +128,9 @@ resource "google_secret_manager_secret_version" "watttime_username_placeholder" 
 resource "google_secret_manager_secret" "watttime_password" {
   secret_id = "watttime-password"
   project   = var.project_id
-  replication { auto {} }
+  replication {
+    auto {}
+  }
   depends_on = [google_project_service.apis]
 }
 
@@ -137,7 +143,9 @@ resource "google_secret_manager_secret_version" "watttime_password_placeholder" 
 resource "google_secret_manager_secret" "carbon_provider" {
   secret_id = "carbon-provider"
   project   = var.project_id
-  replication { auto {} }
+  replication {
+    auto {}
+  }
   depends_on = [google_project_service.apis]
 }
 
