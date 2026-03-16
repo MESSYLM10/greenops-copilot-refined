@@ -59,7 +59,6 @@ locals {
     "cloudresourcemanager.googleapis.com",
     "aiplatform.googleapis.com",
     "generativelanguage.googleapis.com",
-    "carbon.googleapis.com",
   ]
 }
 
