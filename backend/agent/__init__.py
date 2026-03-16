@@ -1,0 +1,1 @@
+# GreenOps Copilot — agent package

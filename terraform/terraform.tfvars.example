@@ -1,0 +1,19 @@
+###############################################################################
+# GreenOps Copilot — Terraform Variable Values
+# Copy this file to terraform.tfvars and fill in your values.
+# NEVER commit terraform.tfvars to git (it is in .gitignore).
+###############################################################################
+
+project_id     = "YOUR_GCP_PROJECT_ID"
+primary_region = "us-central1"
+environment    = "prod"
+alert_email    = "you@example.com"
+
+green_regions = [
+  "europe-west1",
+  "europe-north1",
+  "us-west1",
+  "europe-west4",
+  "us-central1",
+  "asia-east1",
+]
