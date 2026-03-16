@@ -1,6 +1,5 @@
 ###############################################################################
 # GreenOps Copilot — Cloud Run Module
-# ADK Orchestrator, React Frontend, and per-region Job executor
 ###############################################################################
 
 variable "project_id"              { type = string }
@@ -20,21 +19,20 @@ locals {
 }
 
 ###############################################################################
-# ADK Orchestrator — FastAPI + ADK agent backend
+# ADK Orchestrator
 ###############################################################################
 
 resource "google_cloud_run_v2_service" "orchestrator" {
   name     = "greenops-orchestrator"
   location = var.primary_region
   project  = var.project_id
-
-  ingress = "INGRESS_TRAFFIC_ALL"
+  ingress  = "INGRESS_TRAFFIC_ALL"
 
   template {
     service_account = var.orchestrator_sa_email
 
     scaling {
-      min_instance_count = 1   # Always-on — no cold start during Live demo
+      min_instance_count = 1
       max_instance_count = 10
     }
 
@@ -46,7 +44,7 @@ resource "google_cloud_run_v2_service" "orchestrator" {
           cpu    = "2"
           memory = "2Gi"
         }
-        cpu_idle          = false  # Keep CPU allocated — needed for WebSocket streams
+        cpu_idle          = false
         startup_cpu_boost = true
       }
 
@@ -55,82 +53,23 @@ resource "google_cloud_run_v2_service" "orchestrator" {
         container_port = 8080
       }
 
-      # ── Application config ──
-      env {
-        name  = "GCP_PROJECT_ID"
-        value = var.project_id
-      }
-      env {
-        name  = "PRIMARY_REGION"
-        value = var.primary_region
-      }
-      env {
-        name  = "GREEN_REGIONS"
-        value = join(",", var.green_regions)
-      }
-      env {
-        name  = "BIGQUERY_DATASET"
-        value = var.bigquery_dataset_id
-      }
-      env {
-        name  = "FIRESTORE_COLLECTION"
-        value = var.firestore_collection
-      }
-      env {
-        name  = "ALERT_TOPIC"
-        value = var.alert_topic_id
-      }
-      env {
-        name  = "GEMINI_MODEL"
-        value = "gemini-2.0-flash-exp"
-      }
+      env { name = "GCP_PROJECT_ID"       value = var.project_id }
+      env { name = "PRIMARY_REGION"        value = var.primary_region }
+      env { name = "GREEN_REGIONS"         value = join(",", var.green_regions) }
+      env { name = "BIGQUERY_DATASET"      value = var.bigquery_dataset_id }
+      env { name = "FIRESTORE_COLLECTION"  value = var.firestore_collection }
+      env { name = "ALERT_TOPIC"           value = var.alert_topic_id }
+      env { name = "GEMINI_MODEL"          value = "gemini-2.0-flash-exp" }
+      env { name = "CARBON_PROVIDER"       value = "simulation" }
+      env { name = "WATTTIME_USERNAME"     value = "" }
+      env { name = "WATTTIME_PASSWORD"     value = "" }
+      env { name = "ELECTRICITY_MAPS_API_KEY" value = "" }
 
-      # ── Carbon provider (auto-detected from which secrets are set) ──
-      env {
-        name = "CARBON_PROVIDER"
-        value_source {
-          secret_key_ref {
-            secret  = "carbon-provider"
-            version = "latest"
-          }
-        }
-      }
-
-      # ── WattTime credentials (Tier 1) ──────────────────────────────
-      env {
-        name = "WATTTIME_USERNAME"
-        value_source {
-          secret_key_ref {
-            secret  = "watttime-username"
-            version = "latest"
-          }
-        }
-      }
-      env {
-        name = "WATTTIME_PASSWORD"
-        value_source {
-          secret_key_ref {
-            secret  = "watttime-password"
-            version = "latest"
-          }
-        }
-      }
-
-      # ── Electricity Maps (Tier 2) ───────────────────────────────────
-      env {
-        name = "ELECTRICITY_MAPS_API_KEY"
-        value_source {
-          secret_key_ref {
-            secret  = var.electricity_maps_secret
-            version = "latest"
-          }
-        }
-      }
       env {
         name = "GEMINI_API_KEY"
         value_source {
           secret_key_ref {
-            secret  = var.gemini_api_key_secret
+            secret  = "gemini-api-key"
             version = "latest"
           }
         }
@@ -138,29 +77,29 @@ resource "google_cloud_run_v2_service" "orchestrator" {
 
       startup_probe {
         http_get { path = "/health" }
-        initial_delay_seconds = 5
-        period_seconds        = 5
-        failure_threshold     = 10
+        initial_delay_seconds = 10
+        period_seconds        = 10
+        failure_threshold     = 30
+        timeout_seconds       = 5
       }
 
       liveness_probe {
         http_get { path = "/health" }
         period_seconds    = 30
         failure_threshold = 3
+        timeout_seconds   = 5
       }
     }
 
-    timeout = "3600s"  # 1 hour — support long Live API sessions
+    timeout = "3600s"
   }
 
   labels = {
-    app         = "greenops-copilot"
-    component   = "orchestrator"
-    environment = "prod"
+    app       = "greenops-copilot"
+    component = "orchestrator"
   }
 }
 
-# Allow unauthenticated invocations (the Live API frontend authenticates via session)
 resource "google_cloud_run_v2_service_iam_member" "orchestrator_public" {
   project  = var.project_id
   location = var.primary_region
@@ -170,15 +109,14 @@ resource "google_cloud_run_v2_service_iam_member" "orchestrator_public" {
 }
 
 ###############################################################################
-# React Frontend — static SPA served from Cloud Run
+# React Frontend
 ###############################################################################
 
 resource "google_cloud_run_v2_service" "frontend" {
   name     = "greenops-frontend"
   location = var.primary_region
   project  = var.project_id
-
-  ingress = "INGRESS_TRAFFIC_ALL"
+  ingress  = "INGRESS_TRAFFIC_ALL"
 
   template {
     scaling {
@@ -187,9 +125,6 @@ resource "google_cloud_run_v2_service" "frontend" {
     }
 
     containers {
-      # Frontend image is updated by Cloud Build step "deploy-frontend" after
-      # the real image is built with the correct orchestrator URL baked in.
-      # On first terraform apply the placeholder ensures the service starts.
       image = "${local.registry_base}/frontend:${var.image_tag}"
 
       resources {
@@ -205,14 +140,8 @@ resource "google_cloud_run_v2_service" "frontend" {
         container_port = 3000
       }
 
-      env {
-        name  = "ORCHESTRATOR_URL"
-        value = google_cloud_run_v2_service.orchestrator.uri
-      }
-      env {
-        name  = "GCP_PROJECT_ID"
-        value = var.project_id
-      }
+      env { name = "ORCHESTRATOR_URL" value = google_cloud_run_v2_service.orchestrator.uri }
+      env { name = "GCP_PROJECT_ID"   value = var.project_id }
     }
   }
 
@@ -233,15 +162,12 @@ resource "google_cloud_run_v2_service_iam_member" "frontend_public" {
 }
 
 ###############################################################################
-# Cloud Run Jobs — per-region workload executors
-# One job template per green region; Cloud Scheduler triggers the right region
+# Cloud Run Job — primary region only (quota limit on free tier)
 ###############################################################################
 
 resource "google_cloud_run_v2_job" "workload_executor" {
-  for_each = toset(var.green_regions)
-
-  name     = "greenops-executor-${replace(each.value, "/", "-")}"
-  location = each.value
+  name     = "greenops-executor"
+  location = var.primary_region
   project  = var.project_id
 
   template {
@@ -253,23 +179,14 @@ resource "google_cloud_run_v2_job" "workload_executor" {
 
         resources {
           limits = {
-            cpu    = "4"
-            memory = "8Gi"
+            cpu    = "2"
+            memory = "4Gi"
           }
         }
 
-        env {
-          name  = "GCP_PROJECT_ID"
-          value = var.project_id
-        }
-        env {
-          name  = "EXECUTION_REGION"
-          value = each.value
-        }
-        env {
-          name  = "JOB_EVENTS_TOPIC"
-          value = var.alert_topic_id
-        }
+        env { name = "GCP_PROJECT_ID"    value = var.project_id }
+        env { name = "EXECUTION_REGION"  value = var.primary_region }
+        env { name = "JOB_EVENTS_TOPIC"  value = var.alert_topic_id }
       }
 
       max_retries = 2
@@ -278,8 +195,7 @@ resource "google_cloud_run_v2_job" "workload_executor" {
   }
 
   labels = {
-    app    = "greenops-copilot"
-    region = replace(each.value, "/", "-")
+    app = "greenops-copilot"
   }
 }
 
