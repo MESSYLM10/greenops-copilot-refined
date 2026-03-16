@@ -121,10 +121,10 @@ steps:
         cd terraform
         ORCHESTRATOR_URL=$(terraform output -raw orchestrator_url)
         FRONTEND_URL=$(terraform output -raw frontend_url)
-        echo "ORCHESTRATOR_URL=$ORCHESTRATOR_URL" > /workspace/urls.env
-        echo "FRONTEND_URL=$FRONTEND_URL" >> /workspace/urls.env
-        echo "Orchestrator: $ORCHESTRATOR_URL"
-        echo "Frontend:     $FRONTEND_URL"
+        echo "ORCHESTRATOR_URL=$$ORCHESTRATOR_URL" > /workspace/urls.env
+        echo "FRONTEND_URL=$$FRONTEND_URL" >> /workspace/urls.env
+        echo "Orchestrator: $$ORCHESTRATOR_URL"
+        echo "Frontend:     $$FRONTEND_URL"
     waitFor: [tf-apply]
 
   # ── 6. Build frontend with REAL orchestrator URL baked in ────────────────────
@@ -138,7 +138,7 @@ steps:
         docker build \
           -t ${_REGION}-docker.pkg.dev/$PROJECT_ID/greenops-copilot/frontend:$SHORT_SHA \
           -t ${_REGION}-docker.pkg.dev/$PROJECT_ID/greenops-copilot/frontend:latest \
-          --build-arg REACT_APP_ORCHESTRATOR_URL=$ORCHESTRATOR_URL \
+          --build-arg REACT_APP_ORCHESTRATOR_URL=$$ORCHESTRATOR_URL \
           -f frontend/Dockerfile \
           frontend/
     waitFor: [extract-urls]
@@ -170,13 +170,13 @@ steps:
       - -c
       - |
         source /workspace/urls.env
-        echo "Smoke testing $ORCHESTRATOR_URL/health ..."
+        echo "Smoke testing $$ORCHESTRATOR_URL/health ..."
         for i in $(seq 1 12); do
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$ORCHESTRATOR_URL/health" 2>/dev/null || echo "000")
-          echo "  attempt $i/12 — HTTP $STATUS"
-          if [ "$STATUS" = "200" ]; then
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$$ORCHESTRATOR_URL/health" 2>/dev/null || echo "000")
+          echo "  attempt $$i/12 — HTTP $$STATUS"
+          if [ "$$STATUS" = "200" ]; then
             echo "Smoke test PASSED."
-            echo "Frontend: $FRONTEND_URL"
+            echo "Frontend: $$FRONTEND_URL"
             exit 0
           fi
           sleep 5

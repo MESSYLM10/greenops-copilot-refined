@@ -18,10 +18,10 @@ terraform {
   }
 
   # Uncomment after first apply to enable remote state
-  # backend "gcs" {
-  #   bucket = "<YOUR_PROJECT_ID>-tfstate"
-  #   prefix = "greenops-copilot/state"
-  # }
+  backend "gcs" {
+    bucket = ""project-7d668bc6-9d94-4bba-9c1"-tfstate"
+    prefix = "greenops-copilot/state"
+  }
 }
 
 ###############################################################################
